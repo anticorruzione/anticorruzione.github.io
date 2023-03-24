@@ -1,0 +1,1912 @@
+openapi: 3.0.3
+info:
+  title: Integrazione B2B Appalti - OpenAPI 3.0
+  x-summary: >-
+    Questo servizio ritorna la data e l'ora attuali in UTC.
+  description: |-
+   Vengono descritti i servizi B2B richiamati per le fasi di Appalto dall Stazione Appaltante. 
+   https://yakworks.github.io/gorm-rest-api/design-principles/schema/
+      #### Documentazione
+    Il servizio Ora esatta ritorna l'ora del server in formato RFC5424 (syslog).
+
+    `2018-12-30T12:23:32Z`
+
+    Qui va' inserita la documentazione principale del servizio.
+    Il testo dev'essere diviso in piu' parti, tutte scritte in Markdown.
+
+    Le Api sono utilizzati per l'intergrazione B2B con i Sistemi Appaltanti per le fasi di Definizione e Pubblicazione Appalto, Aggiudicazione Appalto e Esecuzione Contratto dell'Appalto.
+    Il Servizio Appaltante deve chiamare nella sequenza e nella modalità descritte in dettaglio nella documentazione fornita.
+
+    ##### ESPD (European Single Procurement Document)
+    Le specifiche dei documenti relativi all'ESPD Request e all'ESPD Response sono descritte https://www.agid.gov.it/sites/default/files/repository_files/edgue-it_specifiche_tecniche_v1.0.0_0.pdf
+
+    Agid - www.agid.gov.it
+    
+    CEF - https://ec.europa.eu/inea/connecting-europe-facility/cef-telecom
+      
+    IIeP - https://ec.europa.eu/inea/en/connecting-europe-facility/cef-telecom/2015-it-ia-0108
+      
+    Direttiva 24/2014, Unione Europea – https://eur-lex.europa.eu/legal-content/IT/TXT/?uri=celex%3A32014L0024
+      
+      E-Certis - https://ec.europa.eu/tools/ecertis/search
+      
+      ESPD - http://ec.europa.eu/growth/single-market/public-procurement/e-procurement/espd/
+      
+      ESPDe - https://ec.europa.eu/tools/espd/filter?lang=it#
+    ##### eForm (nuovo standard europeo per la pubblicazione di appalti)
+    
+    
+    #### Note
+
+    Il servizio non richiede autenticazione, ma va' usato rispettando gli
+    header di throttling esposti in conformita' alle Linee Guida del Modello di interoperabilita'.
+
+    Usa questa sezione per annotazioni specifiche, riferimenti normativi e/o
+    per manleve ed esclusioni di responsabilita' eventualmente non incluse in `termsOfService`.
+
+    #### Informazioni tecniche ed esempi
+
+    Esempio:
+
+    ```
+    http://localhost:8443/datetime/v1/echo
+    {
+      'datetime': '2018-12-30T12:23:32Z'
+    }
+    ```
+
+    Qui e' possibile introdurre brevi informazioni tecniche ed esempi.
+  # I termini del servizio contengono un riferimento
+  #   a tutte le indicazioni e le note legali per l'utilizzo
+  #   del servizio, inclusi gli eventuali riferimenti utili al GDPR.
+  termsOfService: 'http://swagger.io/terms/'
+  # Chi posso contattare per informazioni sul servizio e sul suo stato?
+  contact:
+    email: mario.rossi@anticorruzione.it
+    name: Mario Rossi
+    url: https://twitter.com/ioggstream
+  # L'audience delle API. Attualmente e' definito solamente
+  #   la tipologia `public`.
+  x-audience:
+    - public
+  # Ogni API deve avere un UUID, invariante nel tempo e
+  #   rispetto al `title`.
+  x-api-id: 00000000-0000-0000-0000-000000000000
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  # Per dare indicazioni sul ciclo di vita dell'API
+  # si puo' usare un parametro come:
+  x-lifecycle:
+    published: 1970-01-01
+    deprecated: 2050-01-01
+    retired: 2050-06-01
+    maturity: published  
+  version: 1.0.3
+servers:
+  - url: https://repositorydocument.swagger.io/api/v1
+    description: Development server
+tags:
+  - name: comunicaAppalto
+    description: Operazioni invocate nella fase di PrePubblicazione
+  - name: pubblicaAvviso 
+    description: Operazioni invocate nella fase di Pubblicazione
+  - name: comunicaPostPubblicazione
+    description: Operazioni invocate nella fase di PostPubblicazione
+  - name: serviziComuni
+    description: Operazioni comuni invocate in tutte le fasi successive alla creazione dell'appalto
+  - name: serviziTecnici 
+    description: Operazioni richiesti dalle linee guida sull'iteroperibilità
+paths:
+  /status:
+    get:
+      summary: Ritorna lo stato dell'applicazione. SINCRONO
+      description: |
+        Ritorna lo stato dell'applicazione. A scopo
+        di test, su base randomica puo' ritornare
+        un errore.
+      operationId: idStatusShow
+      tags:
+        - serviziTecnici
+      responses:
+        '200':
+            description: |
+              Il server ha ritornato lo status. In caso di problemi
+              ritorna sempre un problem+json.
+              # Questi header di throttling sono obbligatori e definiti
+              # nel Nuovo modello di interoperabilità.
+            headers: &ratelimit_headers 
+              X-RateLimit-Limit:
+                 $ref: '#/components/headers/X-RateLimit-Limit'
+              X-RateLimit-Remaining:
+                 $ref: '#/components/headers/X-RateLimit-Remaining'
+              X-RateLimit-Reset:
+                 $ref: '#/components/headers/X-RateLimit-Reset'
+            content:
+              application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/BaseResponse'
+        '429':
+            description: Limite di richieste raggiunto
+            headers:
+              Retry-After:
+                $ref: '#/components/headers/Retry-After'
+            content:
+              application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/BaseResponse'        
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'          
+  /crea-appalto:
+    post:
+      tags:
+         - comunicaAppalto
+      summary: API Rest per il per la creazione dell'Appalto. SINCRONO 
+      description: Inserimento dell'Appalto nel formato ESPD-Request per tutte le tipologie anche affidamento diretto. Inserimento dell'avviso di pubblicazione in TED nel formato eForm. Inserimento di informazioni aggiuntive di controllo nel formato definito da ANAC. SINCRONO 
+      operationId: idAppaltoCrea
+      requestBody:
+        description: Inserimento Appalto con tutti i dati aggiuntivi
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatiAppaltoRequest'
+        required: true
+      responses:
+        '200':
+          description: Operazione terminato con successo. Viene restituito l'idAppalto generato da ANAC
+          headers: *ratelimit_headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreaAppaltoResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA
+  /modifica-appalto:
+    post:
+      tags:
+         - comunicaAppalto
+      summary: API Rest per la modifica dell'Appalto. SINCRONO 
+      description: Modifica dei dati di Appalto nel formato ESPD-Request o, in caso di aggiudicazione diretta, le informazioni necessarie. Inserimento dei dati aggiuntivi richiesti e dati aggiuntivi per la pubblicazione in TED. SINCRONO 
+      operationId: idAppaltoModifica
+      requestBody:
+        description: Modifica dell'Appalto con tutti i dati aggiuntivi
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatiAppaltoRequest'
+        required: true
+      responses:
+        '200':
+          description: Operazione terminato con successo. Viene restituito l'idAppalto generato da ANAC
+          headers: *ratelimit_headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModificaAppaltoResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'  
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA
+  /cancella-appalto:
+    post:
+      tags:
+        - comunicaAppalto
+      summary: API Rest per l'eliminazione logica dell'Appalto. SINCRONO
+      description: Eliminazione logica dell' Appalto e dei lotti nel caso non siano ancora pubblicati. SINCRONO
+      operationId: idAppaltoCancella
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                idAppalto:
+                  description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+                  type: string
+                  format: uuid
+                  example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+                motivo:  
+                  description: descrizione del motivo della richiesta di cancellazione
+                  type: string
+                  maxLength: 200
+                  example: 'Revoca delle procedure di gara'
+              required:
+                - idAppalto
+        required: true
+      responses:
+        '200':
+          description: Operazione terminato con successo. Viene restituito l'idAppalto generato da ANAC
+          headers: *ratelimit_headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancellaAppaltoResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA          
+  /ricerca-appalto:
+    get:
+      tags:
+        -  comunicaAppalto
+      summary: API Rest per la ricerca delle Gare-Lotto dell'Appalto. SINCRONO
+      description: viene recuperata la lista con i dati di sintesi dell'Appalto e dei rispetti lotti. SINCRONO
+      operationId: idAppaltoRicerca
+      parameters:
+        - in: query
+          name: codiceAppalto
+          description: il codice dell'Appalto         
+          schema:
+            type: integer
+            format: int32
+        - in: query    
+          name: idAppalto
+          description: Identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by FC4122).
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"  
+        - in: query
+          name: CIG
+          description: Identificativo univoco Gara-Lotto rilasciato da ANAC
+          schema:
+            type: string
+            example: 9050626CD6
+        - in: query
+          name: stato
+          description: stato dell'Appalto 
+          schema:
+            $ref: '#/components/schemas/StatoAppaltoEnum'
+        - in: query
+          name: dataCreazioneDa
+          description: Data di crezione dell'Appalto con intervallo successivo (A datetime specified by RF3339)
+          schema:
+            type: string
+            format: datetime
+          example: '2015-05-28T14:07:17Z'
+        - in: query
+          name: dataCreazioneA
+          description: Data di crezione dell'Appalto con intervallo precedente (A datetime specified by RF3339) 
+          schema:
+            type: string
+            format: datetime
+          example: '2015-05-28T14:07:17Z'  
+        - in: query
+          name: page
+          description: numero di pagine
+          schema:
+            type: integer
+            format: int32
+        - in: query  
+          name: perPage
+          description: numero di elementi per pagina
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppaltoListaResponse'          
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - read:NPA                
+  /consulta-appalto:
+    get:
+      tags:
+         - comunicaAppalto
+      summary: API Rest per il recupero del dettaglio dell'Appalto. SINCRONO
+      description: viene resituita la definizione dell'Appalto e dei lotti con i relativi requisiti e criteri di esclusione nel formato ESPD-Request, viene restituita la richiesta di pubblicazione in TED nel formato eForm e la richiesta di pubblicazione nazionale nel formato AnacForm. SINCRONO
+      operationId: idAppaltoDettaglio
+      parameters:
+        - in: query
+          name: idAppalto
+          description: Id dell'Appalto, alternativo al CIG
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        - in: query
+          name: CIG
+          description: Identificativo univoco Gara-Lotto rilasciato da ANAC, alternativo all'idAppalto
+          schema:
+            type: string
+            example: 9050626CD6
+      responses:
+        '200':
+          description: Operazione terminato con successo. Viene restituito l'oggetto Appalto
+          headers: *ratelimit_headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaAppaltoResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'       
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - read:NPA  
+  /verifica-appalto:
+    post:
+      tags:
+        - comunicaAppalto
+      summary: API Rest per la validazione dell'appalto. ASINCRONO - ASIMMETRICO
+      description: L'ultimo istanza di appalto inviata viene validata. In base allla tipologia dell'appalto viene eseguita una validazione sintattica dei dati di input dell'appalto (eForm, ESPDRequest, anacForm). la validazione può avvenire mediante API proprietarie (ESPDRequest)o servizio REST esterno di TED (EForm) o mediante una componente custom (AnacForm)- ASINCRONO - ASIMMETRICO 
+      operationId: idAppaltoVerifica
+      parameters:
+        - in: query
+          name: idAppalto
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'          
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA       
+  /conferma-appalto:
+    post:
+      tags:
+        - comunicaAppalto
+      summary: API Rest per il per la conferma dei dati di Appalto propedeutica alla  generazione CI. ASINCRONO - ASIMMETRICO
+      description: SA conferma di dati inviati e avvia la fase di validazione, generazione CIG e modifica dell'ESPD-request e del'eForm con il popalemento dei CIG creati. ASINCRONO - ASIMMETRICO 
+      operationId: idAppaltoConferma
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                idAppalto:
+                  description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+                  type: string
+                  format: uuid
+                  example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+              required:
+                - idAppalto
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'   
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA            
+  /stato-appalto:
+    get:
+      tags:
+         - serviziComuni
+      summary: API Rest per il recupero dello stato dell'Appalto. SINCRONO
+      description: Per l'Appalto richiesto viene restituito lo stato attuale. SINCRONO
+      operationId: idAppaltoStato
+      parameters:
+        - in: query
+          name: idAppalto
+          description: Identificativo univoco dell'Appalto definito da ANAC
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatoAppaltoResponse'  
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA                
+  /recupera-cig:
+    get:
+      tags:
+        - comunicaAppalto
+        - pubblicaAvviso
+      summary: API Rest per il recupero dei CIG generati associati ad una Gara di Appalto
+      description: Per una Gara vengono restituiti le coppie codiceLotto - CIG. SINCRONO
+      operationId: idCIGRecupera
+      parameters:
+        - in: query
+          name: idAppalto
+          description: Identificativo univoco dell'Appalto definito da ANAC
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CigListaResponse' 
+              example:
+                totRows : 3
+                totPages : 1
+                currentPage : 1
+                result :
+                  - progressivoLotto: '0001'
+                    CIG: 'EF89808D45'
+                  - progressivoLotto: '0002'
+                    CIG: 'EF89908H45' 
+                  - progressivoLotto: '0003'
+                    CIG: 'EF90908G67' 
+            application/xml:
+              schema:
+                description: Risposta generica servizio
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    description: codice di ritorno dell'operazione 
+                    type: integer
+                    format: int32
+                    example: 200
+                  type:
+                    description: descrizione dell'esito dell'operazione eseguita
+                    type: string
+                    example: operazione terminata con successo |  
+                  message:
+                    description: messaggio di errore in caso di operazione non venga eseguita correttamente  
+                    type: string
+                xml:
+                  name: '##default'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA            
+  /pubblica-avviso:
+    post:
+      tags:
+        - pubblicaAvviso
+      summary: API Rest per richiedere la pubblicazione dell'avviso.ASINCRONO - ASIMMETRICO
+      description: L'ultimo avviso inviato per l'Appalto viene pubblicato in TED e/o Piattaforma di Pubblicazione Nazionale. 
+        IL SA sceglie la modalità di pubblicazione (TED/PPN)in base ai dati in precedenza inviati. ASINCRONO - ASIMMETRICO  
+      operationId: idAvvisoPubblica
+      parameters:
+        - in: query
+          name: idAppalto
+          description: Id dell'Appalto
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'        
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA            
+  /modifica-avviso:
+    post:
+      tags:
+        - pubblicaAvviso
+      summary: API Rest per la richiesta di pubblicazione di un'avviso di gara sia a livello nazionale sia europeo. (PubblicaAvviso) ASINCRONO - ASIMMETRICO
+      description: API Rest per la richiesta di pubblicazione di un'avviso di gara sia a livello nazionale sia europeo. 
+        il servizio gestisce la pubblicazione europea mediante l'acquisizione di dati nel formato definito da TED (mediante )eform di pubblicazione Gara, eForm di Modifica, eFrom di Aggiudicazione e eForm di Esecuzione (??? DA VERIFICARE)). 
+        Il servizio gestisce la pubblicazione italiana mediante l'acquisizione di dati aggiuntivi richiesti da ANAC
+        ASINCRONO ASIMMETRICO
+      operationId: idAvvisoModifica
+      requestBody:
+        description: Inserimento Avviso con gli oggetti specifici per la pubblicazione in TED o in ambito Nazionale
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvvisoRequest'
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'         
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA 
+        - applicationDB_auth:
+            - write:NPA  
+  /rettifica-avviso:
+    post:
+      tags:
+        - pubblicaAvviso
+      summary: API Rest per la richiesta di pubblicazione di un'avviso di gara sia a livello nazionale sia europeo. (PubblicaAvviso)
+      description: API Rest per la richiesta di pubblicazione di un'avviso di gara sia a livello nazionale sia europeo. 
+        il servizio gestisce la pubblicazione europea mediante l'acquisizione di dati nel formato definito da TED (mediante )eform di pubblicazione Gara, eForm di Modifica, eFrom di Aggiudicazione e eForm di Esecuzione (??? DA VERIFICARE)). 
+        Il servizio gestisce la pubblicazione italiana mediante l'acquisizione di dati aggiuntivi richiesti da ANAC
+        ASINCRONO ASIMMETRICO
+      operationId: idAvvisoRettifica
+      requestBody:
+        description: Inserimento Avviso con gli oggetti specifici per la pubblicazione in TED o in ambito Nazionale
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvvisoRequest'
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'          
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA 
+        - applicationDB_auth:
+            - write:NPA    
+  /cancella-avviso:
+    post:
+      tags:
+        - pubblicaAvviso
+      summary: API Rest generica per richieder l'annullamento della pubblicazione. 
+      description: API Rest per la richiesta di annullamneto della pubblicazione di un'avviso di gara sia a livello nazionale sia europeo. 
+        ASINCRONO ASIMMETRICO
+      operationId: idAvvisoCancella
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                idAppalto:
+                  description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+                  type: string
+                  format: uuid
+                  example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+                motivo:  
+                  description: descrizione del motivo della richiesta di cancellazione
+                  type: string
+                  maxLength: 200
+                  example: 'Revoca delle procedure di gara'
+              required:
+                - idAppalto
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'          
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA 
+        - applicationDB_auth:
+            - write:NPA  
+  /ricerca-avviso:
+    get: 
+      tags:
+        - pubblicaAvviso
+      summary: API Rest per la ricerca degli avvisi dell'appalto.
+      description: viene recuperata la lista con i dati di sintesi degli Avvisi. SINCRONO
+      operationId: idAvvisoRicerca
+      parameters:
+        - in: query
+          name: codiceAppalto
+          description: il codice dell'Appalto         
+          schema:
+            type: integer
+            format: int32
+        - in: query    
+          name: idAppalto
+          description: Identificativo univoco dell' Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by FC4122).
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"  
+        - in: query
+          name: CIG
+          description: Identificativo univoco Gara-Lotto rilasciato da ANAC
+          schema:
+            type: string
+            example: 9050626CD6
+        - in: query
+          name: stato
+          description: stato dell'Appalto 
+          schema:
+            $ref: '#/components/schemas/StatoAppaltoEnum'
+        - in: query
+          name: dataCreazioneDa
+          description: Data di crezione dell'Appalto con intervallo successivo (A datetime specified by RF3339)
+          schema:
+            type: string
+            format: datetime
+          example: '2022-01-23T12:02:05Z'
+        - in: query
+          name: dataCreazioneA
+          description: Data di crezione della Appalto con intervallo precedente (A datetime specified by RF3339) 
+          schema:
+            type: string
+            format: datetime
+          example: '2022-01-23T12:02:05Z'
+        - in: query
+          name: statoAvviso
+          description: stato dell'Avviso
+          schema:
+            type: string
+            minimum: 1
+            enum: ['IN_VALIDAZIONE', 'INVIATO','PUBBLICATO', 'IN_ATTESA_DI_VERIFICA_TED', 'NON PUBBLICATO']
+            example : 'IN_VALIDAZIONE'
+        - in: query
+          name: tipoAvviso
+          description: tipo Avviso
+          schema:
+            type: string
+            minimum: 1
+            enum: ['PRE-PUBBLICAZIONE','PUBBLICAZIONE', 'AGGIUDICAZIONE']
+            example : 'PUBBLICAZIONE' 
+        - in: query
+          name: azioneAvviso
+          description: azione dell'avviso
+          schema:
+            type: string
+            minimum: 1
+            enum: ['CREAZIONE', 'MODIFICA','RETTIFICA']
+            example : 'CREAZIONE' 
+        - in: query
+          name: page
+          description: numero di pagine
+          schema:
+            type: integer
+            format: int32
+        - in: query  
+          name: perPage
+          description: numero di elementi per pagina
+          schema:
+            type: integer
+            format: int32    
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvvisoListaResponse'  
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - read:NPA
+  /consulta-avviso:
+    get:
+      tags:
+        - pubblicaAvviso
+      summary: API Rest per il recupero del dettaglio dell'avviso
+      description: viene resituita la definizione dell'avviso.
+        Viene restituito un Oggetto Avviso contenente l'eventuale eForm e AnacForm .
+      operationId: idAvvisoDettaglio
+      parameters:
+        - in: query
+          name: idAvviso
+          description: Idientificativo dell'Avviso generato da ANAC e restituito dall'operazione 'inviaScheda'
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaAvvisoResponse'   
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - read:NPA          
+  /stato-avviso:
+    get:
+      tags:
+         - pubblicaAvviso
+      summary: API Rest per il recupero dello stato dell'Avviso
+      description: Per l'ultimo Avviso richiesto viene restituito lo stato attuale. SINCRONO
+      operationId: idAvvisoStato
+      parameters:
+        - in: query
+          name: idAppalto
+          description: Identificativo univoco dell'Appalto definito da ANAC
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatoAvvisoResponse'  
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA              
+  /crea-scheda:
+    post:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest generica per l'inserimento dei dati delle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE).  ASINCRONO ASIMMETRICO
+      description: API Rest generica per l'inserimento dei dati delle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE) . Per la fase di ESECUZIONE i dati sono specifiche per le varie schede del contratto (Creazione Contratto, Avvio Contratto, Avanzamento Contratto, Conclusione Contratto, Collaudo Contratto, Sospensione Contratto, Ripresa Contratto, Risoluzione Contratto, Modifica Contratto).
+        La sequenza degli inserimenti viene gestita da un motore in modo automatico.
+        ASINCRONO ASIMMETRICO
+      operationId: idSchedaCrea
+      requestBody:
+        description: Oggetto generico definito in base alla fase dell'appalto e alle regole del motore
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedaType'
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'  
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+          $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA
+  /modifica-scheda:
+    post:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest generica per la modifica dei dati delle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE). ASINCRONO ASIMMETRICO
+      description: API Rest generica per la modifica dei dati delle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE). 
+        Il Motore interno in base a delle regole definite, controllerà la validità dell'operazione.
+        DA VALUTARE se la modifica può essere pilotata dal motore o in alternativa al servizio deve essere passato un ENUM per determinare quale scheda modificare.
+        ASINCRONO ASIMMETRICO
+      operationId: idSchedaModifica
+      requestBody:
+        description: Oggetto generico definito in base alla alle regole definite nel motore 
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedaType'
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'  
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA
+  /cancella-scheda:
+    post:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest generica per l'annullamento di tutti i dati inseriti in una specifica Scheda nelle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE). ASINCRONO ASIMMETRICO
+      description: API Rest per l'annullamento dei dati inseriti per una specifica Scheda nelle fasi successive alla pubblicazione (AGGIUDICAZIONE e ESECUZIONE). Il Motore interno in base allo stato appalto e ad altre regole, controllerà la validità dell'operazione. 
+      operationId: idSchedaCancella
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                idAppalto:
+                  description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+                  type: string
+                  format: uuid
+                  example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+                idScheda:
+                  description: identificativo univoco della scheda definita da ANAC. Restituito dall'operazione di creazione SCheda. (A UUID specified by RFC4122).
+                  type: string
+                  format: uuid
+                  example: "68aa8c04-0d00-40f6-8d81-b59de3a3dcce"  
+                motivo:  
+                  description: descrizione del motivo della richiesta di cancellazione
+                  type: string
+                  maxLength: 200
+                  example: 'Errore inserimento dati'
+              required:
+                - idAppalto
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'          
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA  
+  /ricerca-scheda:
+    get:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest per la ricerca degli inserimenti eseguiti. SINCRONO
+      description: viene recuperata la lista dei dati inseriti. SINCRONO
+      operationId: idSchedaRicerca
+      parameters:
+        - in: query    
+          name: idAppalto
+          description: Identificativo univoco della gara definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by FC4122).
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"  
+        - in: query
+          name: CIG
+          description: Identificativo univoco Gara-Lotto rilasciato da ANAC
+          schema:
+            type: string
+            example: 9050626CD6
+        - in: query
+          name: stato
+          description: stato dell'Appalto
+          schema:
+            $ref: '#/components/schemas/StatoAppaltoEnum'
+        - in: query
+          name: dataCreazioneDa
+          description: Data di crezione dell'Appalto con intervallo successivo (A datetime specified by RF3339)
+          schema:
+            type: string
+            format: datetime
+          example: '2022-01-23T12:02:05Z'
+        - in: query
+          name: dataCreazioneA
+          description: Data di crezione della Gara con intervallo precedente (A datetime specified by RF3339) 
+          schema:
+            type: string
+            format: datetime
+          example: '2022-01-23T12:02:05Z'
+        - in: query
+          name: TipoScheda
+          description: Il Tipo di scheda che si vuole recuperare (DA DEFINIRE)
+          schema:
+            $ref: '#/components/schemas/TipoSchedaEnum'
+        - in: query
+          name: StatoScheda
+          description: stato in cui si trova la scheda (DA DEFINIRE) 
+          schema:
+            $ref: '#/components/schemas/StatoSchedaEnum'
+        - in: query
+          name: page
+          description: numero di pagine
+          schema:
+            type: integer
+            format: int32
+        - in: query  
+          name: perPage
+          description: numero di elementi per pagina
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedaListaResponse'          
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA 
+  /consulta-scheda:
+    get:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest per il recupero del dettaglio della specifica scheda dati. SINCRONO
+      description: API Rest per il recupero del dettaglio della specifica scheda di dati. SINCRONO
+      operationId: idSchedaDettaglio
+      parameters:
+        - in: query
+          name: idScheda
+          description: Identificativo della singola scheda restituita da ANAC nella fase di inserimento
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+          description: Operazione terminato con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaSchedaResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - repositorydocumentale_auth:
+            - write:FVA
+  /verifica-scheda:
+    post:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest per la validazione dell'avviso
+      description: L'ultimo avviso inviato associato alla fase dell'Appalto viene validato. In base al formato dell'avviso, la validazione può avvenire mediante API proprietarie / servizio REST esterno di TED (EForm) o mediante una componente custom (AnacForm)-      SINCRONO 
+      operationId: idSchedaVerifica
+      parameters:
+        - in: query
+          name: idAppalto
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'       
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA       
+  /conferma-scheda:
+    post:
+      tags:
+        - comunicaPostPubblicazione
+      summary: API Rest per il per la conferma dei dati invaiti di una specifica scheda. ASINCRONO - ASIMMETRICO
+      description: SA conferma di dati inviati e, qualora sia presente, avvia la fase di pubblicazione dell'avviso . ASINCRONO - ASIMMETRICO 
+      operationId: idSchedaConferma
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                idAppalto:
+                  description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+                  type: string
+                  format: uuid
+                  example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+              required:
+                - idAppalto
+        required: true
+      responses:
+        '200':
+            $ref: '#/components/responses/200AckResponse'
+        '400':
+            $ref: '#/components/responses/400BadRequest'
+        '404':
+            $ref: '#/components/responses/404NotFound'
+        '429':
+            $ref: '#/components/responses/429TooManyRequests'
+        '500':
+            $ref: '#/components/responses/500InternalServerError'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA                        
+  /esito-operazione:
+    get:
+      tags:
+        - serviziComuni
+      summary: API Rest per il recupero dell'esito dell'operazione. SINCRONO
+      description: In base all'operazione viene restituita l'esito. SINCRONO
+      operationId: idOperazioneEsito
+      parameters:
+        - in: query
+          name: idAppalto
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        - in: query
+          name: tipoOperazione
+          description: Tipo operazione di cui si vuole conoscere l'esito
+          required: true
+          schema:
+            $ref: '#/components/schemas/TipoOperazioneEnum'
+        - in: query
+          name: tipoRicerca
+          description: Tipo di ricerca da eseguire
+          required: true
+          schema:
+            type: string
+            minimum: 1
+            enum: ['ULTIMO_ESITO','TUTTI_ESITI']
+            description: >
+                tipoRicerca - Tipo Ricerca da eseguire :
+                 * 'ULTIMO_ESITO' - viene estratto l'ultimo esito . DEFAULT
+                 * 'TUTTI_ESITI' - vengono estratti tutti gli esiti per l'operazione richiesta ordinati per data emissione decrescente 
+      responses:
+        '200':
+          description: Esecuzione avvenuta con successo
+          headers: *ratelimit_headers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EsitoOperazioneListaResponse'
+        '404':
+            description: Identificativo non trovato
+            headers: *ratelimit_headers
+            content:
+              application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+        '400':
+            description: Richiesta malformata
+            headers: *ratelimit_headers
+            content:
+             application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+        '429':
+            description: Limite di richieste raggiunto
+            headers:
+              Retry-After:
+                $ref: '#/components/headers/Retry-After'
+            content:
+              application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+        '500':
+            description: Errore interno avvenuto
+            content:
+              application/problem+json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - apiKeyAuth: []
+        - applicationDB_auth:
+            - write:NPA
+components:
+  headers:
+    Retry-After:
+      description: |-
+        Retry contacting the endpoint *at least* after seconds.
+        See https://tools.ietf.org/html/rfc7231#section-7.1.3
+      schema:
+        format: int32
+        maximum: 186400
+        minimum: 0
+        type: integer
+    Sunset:
+      description: The Sunset HTTP response header field, indicates that a URI is likely
+        to become unresponsive at a specified point in the future.  It also defines
+        a sunset link relation type that allows linking to resources providing information
+        about an upcoming resource or service sunset.
+      schema:
+        example: Sun, 06 Nov 1994 08:49:37 GMT
+        externalDocs:
+          url: https://tools.ietf.org/html/rfc7231#appendix-D
+        format: HTTP-date
+        maxLength: 30
+        type: string
+    X-RateLimit-Limit:
+      description: The number of allowed requests in the current period
+      schema:
+        format: int32
+        maximum: 1000000
+        minimum: 0
+        type: integer
+    X-RateLimit-Remaining:
+      description: The number of remaining requests in the current period
+      schema:
+        format: int32
+        maximum: 1000000
+        minimum: 0
+        type: integer
+    X-RateLimit-Reset:
+      description: The number of seconds left in the current period
+      schema:
+        format: int32
+        maximum: 186400
+        minimum: 0
+        type: integer  
+    X-Ratelimit-Used: 
+      description: The number of requests used in the current period
+      schema:
+        type: integer
+        format: int32      
+  responses:
+    200AckResponse:
+      description: Richiesta accettata
+      headers: *ratelimit_headers
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AckResponse'
+    400BadRequest:
+      description: Richiesta malformattata
+      headers: *ratelimit_headers
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404NotFound:
+      description: Dato non trovato
+      headers: *ratelimit_headers
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    429TooManyRequests:
+      description: Limite di richieste raggiunto
+      headers:
+        Retry-After:
+            $ref: '#/components/headers/Retry-After'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    500InternalServerError:
+      description: Errore generico. Operazione terminato con errore. Viene restitutito il dettaglio dell'errore
+      headers: *ratelimit_headers
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    503ServiceUnavailable:
+      description: Service Unavailable
+      headers:
+        Retry-After:
+            $ref: '#/components/headers/Retry-After'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    default:
+      description: |-
+       Errore inatteso. Non ritornare informazioni
+       sulla logica interna e/o non pertinenti all'interfaccia.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    StatoAppaltoEnum :  
+      type: string
+      minimum: 1
+      enum: ['IN LAVORAZIONE', 'CONFERMATO', 'CANCELLATO', 'IN ATTESA DI PUBBLICAZIONE','IN PUBBLICAZIONE FERMATA','PUBBLICATO','NON AGGIUDICATO', 'AGGIUDICATO', 'IN SOTTOSCRIZIONE CONTRATTO','IN ESECUZIONE','ANNULLATO','SOSPESO', 'CONCLUSO','COLLAUDATO']
+      description: >
+        stato- Stato in cui si trova la Appalto:
+         * 'IN LAVORAZIONE' - Appalto inviato in aatesa di CIG
+         * 'CONFERMATA' - Appalto inviato in aatesa di CIG
+         * 'CANCELLATA' - CIG assegnato alla Gara-Lotto
+         * 'IN ATTESA DI PUBBLICAZIONE' - Appalto pubblicato in TED/Gazzetta Italiana/Altro
+         * 'PUBBLICATA' - Appalto pubblicato in TED/Gazzetta Italiana/Altro
+         * 'AGGIUDICATA' - Appalto aggiudicato a un Operatore Econominco
+         * 'NON AGGIUDICATA' - Appalto aggiudicato a un Operatore Econominco
+         * 'IN SOTTOSCRIZIONE CONTRATTO' - In fase di definizione del contratto dell'appalto 
+         * 'IN ESECUZIONE' - il contratto di un appalto é in esecuzione
+         * 'ANNULLATA' - il 
+         * 'SOSPESA' - L'esecuzione dei lavori di un appalto sono sospesi
+         * 'CONCLUSA' - 
+         * 'COLLAUDATA' - L'Appalto si conclude con il collaudo dei lavori
+      example: "IN LAVORAZIONE" 
+    StatoAvvsioEnum :
+      type: string
+      minimum: 1
+      enum: ['IN ATTESA DI PUBBLICAZIONE','PUBBLICAZIONE FERMATA','PUBBLICATO','NON PUBBLICATO']
+      description: >
+        stato - Stato in cui si trova l'avviso:
+         * 'IN_ATTESA_DI_PUBBLICAZIONE' - l'Avviso é da pubblicare in TED e/o Gazzetta Italiana/Altro
+         * 'PUBBLICAZIONE_FERMATA' - l'Avviso in TED e/o Gazzetta Italiana/Altro é stato fermato da uno stop pubblicazione
+         * 'PUBBLICATO' - l'Avviso é stato pubblicato in TED e/o Gazzetta Italiana/Altro
+         * 'NON PUBBLICATO' - l' Avviso non é stato pubblicato in TED e/o Gazzetta Italiana/Altro
+      example: "PUBBLICATO"
+    StatoSchedaEnum :
+        type: string
+        minimum: 1
+        enum: ['IN LAVORAZIONE', 'CREATA', 'CONFERMATA', 'CANCELLATA']   
+        description: >
+          stato- Stato in cui si trova la Scheda:
+           * 'IN LAVORAZIONE' - Stato iniziale della scheda
+           * 'CONFERMATA' - I dati della scheda sono confermati
+           * 'CANCELLATA' - i dati della scheda sono annullati
+    #Problem:
+     #   $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/schemas/Problem'
+    TipoOperazioneEnum :
+            type: string
+            minimum: 1
+            enum: ['CREA_APPALTO', 'MODIFICA_APPALTO','CANCELLA_APPALTO','CONFERMA_APPALTO','VERIFICA_APPALTO','PUBBLICA_AVVISO','MODIFICA_AVVISO','RETTIFICA_AVVISO','CANCELLA_AVVISO','CREA_SCHEDA' ,'MODIFICA_SCHEDA','CANCELLA_SCHEDA','VERIFICA_SCHEDA','CONFERMA_SCHEDA'
+            ]
+            description: >
+                tipoOperazione - Tipo Operazione di cui si richiedere l'esito dell'operazione :
+                 * 'CREA_APPALTO' -
+                 * 'MODIFICA_APPALTO' -
+                 * 'CANCELLA_APPALTO' -
+                 * 'CONFERMA_APPALTO' -
+                 * 'VERIFICA_APPALTO' -
+                 * 'PUBBLICA_AVVISO' -
+                 * 'MODIFICA_AVVISO' -
+                 * 'RETTIFICA_AVVISO' -
+                 * 'CANCELLA_AVVISO' -
+                 * 'CREA_SCHEDA' -
+                 * 'MODIFICA_SCHEDA' -
+                 * 'CANCELLA_SCHEDA' -
+                 * 'CONFERMA_SCHEDA' -
+                 * 'VERIFICA_SCHEDA' -    
+    TipoSchedaEnum :
+      type: string
+      minimum: 1
+      enum: ['ELENCO_PARTECIPANTI', 'AGGIUDICAZIONE' , 'AVVIO_CONTRATTO','AVANZAMENTO_CONTRATTO','CONCLUSIONE_CONTRATTO', 'COLLAUDO_CONTRATTO','SOSPENSIONE','RIPRESA_ESECUZIONE_CONTRATTO','RISOLUZIONE CONTRATTO', 'MODIFICA_CONTRATTO' ,'SUBAPPALTO','RECESSO' ,'CONTENZIOSO']
+      description: >
+            stato- Stato in cui si trova la Appalto:
+             * 'ELENCO_PARTECIPANTI'
+             * 'AGGIUDICAZIONE' 
+             * 'AVVIO_CONTRATTO'- Dati relativi alla creazione del Contratto nela fase di ESECUZIONE
+             * 'AVANZAMENTO_CONTRATTO'
+             * 'CONCLUSIONE_CONTRATTO' 
+             * 'COLLAUDO_CONTRATTO' 
+             * 'SOSPENSIONE' 
+             * 'RIPRESA_ESECUZIONE_CONTRATTO' 
+             * 'RISOLUZIONE CONTRATTO' 
+             * 'MODIFICA_CONTRATTO' 
+             * 'SUBAPPALTO'
+             * 'RECESSO' 
+             * 'CONTENZIOSO'
+    AppaltoType:
+      description: Oggetto che riporta tutti i dati dell'Appalto
+      type: object
+      additionalProperties: false
+      properties:
+        codiceSA:
+          description: codice identificativo Stazione Appaltante
+          type: string
+          example: xcdsd5#3346
+        idAppalto:
+          description: identificativo univoco Gara/Lotto restituito da ANAC
+          type: string
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"      
+        tipo:
+          description: tipologia di gara
+          type: string
+          minimum: 1
+          enum: ['Appalti di lavori', 'Forniture',  'Servizi']
+          example:  'Appalti di lavori'
+        oggetto:
+          description: descrizione della gara
+          type: string
+          example: Fornitura di strumento XX per XX
+        dataCreazione:
+          description: data creazione della gara (A datetime specified by RF3339)
+          type: string
+          format: datetime
+          example: '2022-01-23T12:02:05Z'
+        dataScadenza:
+          description: data scadenza della gara
+          type: string
+          format: datetime (A datetime specified by RF3339)
+          example: '2022-01-23T12:02:05Z'
+        importo:
+          description: |
+            ISO20022: Amount of money to be moved between the debtor and creditor, before deduction of charges, expressed in the currency as ordered by the initiating party.
+          example: '120000.25'
+          maxLength: 35
+          minLength: 1
+          pattern: ^\-{0,1}[0-9]{1,13}(\.[0-9]{0,5}){0,1}$
+          type: string
+        stato:
+          $ref: '#/components/schemas/StatoAppaltoEnum'
+        lotti:
+          type: array
+          items:
+            $ref: '#/components/schemas/LottoType'
+    AvvisoType:
+      type: object
+      additionalProperties: false
+      properties:
+        idAvviso:
+          description: identificativo univoco Avviso restituito da ANAC dall'operazione 'inviaAvviso'
+          type: string
+          example: 'xcdsd5#334'
+        codiceSA:
+          description: codice identificativo Stazione Appaltante
+          type: string
+          example: 'xcdsd5#334'
+        appalto:
+          $ref: '#/components/schemas/AppaltoType'      
+    CigType:
+      description: coppia progressivoLotto-CIG
+      type: object
+      additionalProperties: false
+      properties:
+        progressivoLotto:
+          description: identificativo-progressivo definito da SA riportato nell'ESPD Request inviato
+          type: string
+        CIG:
+          description: identificativo univoco della gara-lotto definito da ANAC
+          type: string
+      example:
+          progressivoLotto: '0001'
+          CIG: 'EF89808D45'   
+    LottoType:
+      description: Oggetto che riporta tutti i dati del lotto
+      type: object
+      additionalProperties: false
+      properties:
+        CIG:
+          description: codice identificativo lotto
+          type: string
+          example: '9050626CD6'
+        oggetto:
+          description: descrizione del lotto
+          type: string
+          example: 'bla bla bla' 
+    AFormType:
+      description: dati aggiuntivi per la gestione italiana della richiesta
+      type: object
+      properties:
+        body:
+          description: Definizione form lato ANAC in formato JSON 
+          type: string
+          example: 
+                  " Il Modello dati dinamico é presente al seguente URL https://github.com/anticorruzione/npa-docs/tree/3.04.7/PDF
+                  }"
+    EFormType:
+      description:  dati per la pubblicazione in TED nel formato definito in ambito europeo
+      type: object
+      additionalProperties: false
+      properties:
+        body:
+          description: EForm codificato Base64 e compresso XXXX nel formato XML definito da TED 
+          type: string
+          format: byte
+          example: U3dhZ2dlciByb2Nrcw== 
+    EspdRequestType:
+      description: Definizione delle gara, dei sui lotti con i criteri di esclusione/inclusioni nel formato definito in ambito europeo (ESPD - Request)
+      type: object
+      additionalProperties: false
+      properties:
+        body:
+          description: ESPD Request codificato Base64 nel formato XML definito da TED 
+          type: string
+          format: byte
+          example: U3dhZ2dlciByb2Nrcw==
+    DatiAppaltoType:
+      description: Oggetto Complesso che riporta tutti i dati dell'appalto
+      type: object
+      additionalProperties: false
+      properties:
+        idAppalto:
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          type: string
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        espdRequest:
+          $ref: '#/components/schemas/EspdRequestType'
+        eForm:
+          $ref: '#/components/schemas/EFormType'
+        anacForm:
+          $ref: '#/components/schemas/AFormType'
+      required:
+        - idAppalto
+    SchedaType:
+        description: Scheda generica definita dal contesto in cui si trova l'appalto
+        type: object
+        additionalProperties: false
+        properties:
+          idScheda:
+            description: identificativo univoco della Scheda
+            type: integer
+            format: int64
+            example: 1088098
+          versione:
+            type: string
+            example: '01.00.00'
+          body:
+            description: dati della Scheda 
+            type: string
+            example: '{JSON dinamico popolato in base al contesto in cui si trova l''appalto. CAMPI DA DEFINIRE}'          
+    StatoAppaltoType :  
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          description: identificativo univoco dello stato
+          type: string
+          example: "001"
+        descrizione: 
+          $ref: '#/components/schemas/StatoAppaltoEnum'    
+    StatoAvvisoType :  
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          description: identificativo univoco dello stato
+          type: string
+          example: "001"
+        descrizione:  
+          $ref: '#/components/schemas/StatoAvvsioEnum'
+    PaginazioneType:
+      description: Oggetto per la paginazione dei risultati
+      type: object
+      additionalProperties: false
+      properties:
+        totRows: 
+          description: Numero totale di record risultante dalla ricerca
+          type: integer
+          format: int32
+        totPages: 
+          description: Numero totale di pagine risultanti dalla ricerca
+          type: integer
+          format: int32      
+        currentPage: 
+          description: Numero di pagina corrente
+          type: integer
+          format: int32
+        elementPage:
+          description: Numero di elementi per pagina
+          type: integer
+          format: int32
+    ConsultaAppaltoResponse :
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:  
+        appalto:
+          $ref: '#/components/schemas/AppaltoType'
+        espdRequest:
+          $ref: '#/components/schemas/EspdRequestType'
+        eForm:
+          $ref: '#/components/schemas/EFormType'
+        anacForm:
+          $ref: '#/components/schemas/AFormType'     
+    CreaAppaltoResponse:
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      description: Risposta generica servizio
+      type: object
+      required:
+        - idAppalto
+      properties:
+        idAppalto:
+          description: Identificativo univoco dell'appalto' definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+    ModificaAppaltoResponse:
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      description: Risposta generica servizio
+      type: object
+      required:
+        - idAppalto
+      properties:
+        idAppalto:
+          description: Identificativo univoco dell'appalto' definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"      
+    CancellaAppaltoResponse:
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      description: Risposta generica servizio
+      type: object
+      required:
+        - idAppalto
+      properties:
+        idAppalto:
+          description: Identificativo univoco dell'appalto' definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"      
+    StatoAppaltoResponse : 
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      type: object
+      additionalProperties: false
+      properties:
+        idAppalto:
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          type: string
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        stato:  
+           $ref: '#/components/schemas/StatoAppaltoType'
+    StatoAvvisoResponse : 
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      type: object
+      additionalProperties: false
+      properties:
+        idAppalto:
+          description: identificativo univoco dell'Appalto definito da ANAC. Restituito dall'operazione di creazione Appalto. (A UUID specified by RFC4122)
+          type: string
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        stato:  
+           $ref: '#/components/schemas/StatoAvvisoType' 
+    AppaltoListaResponse :
+      allOf: # estende la classe DatiAppaltoType
+        - $ref: '#/components/schemas/PaginazioneType'
+      description: Oggetto generico di ritorno di una risposta con paginazione
+      type: object
+      additionalProperties: false
+      properties:
+        result: 
+          description: risposta di una lista di oggetti paginati specifica del servizio SINCRONO
+          type: array
+          items:
+            $ref: '#/components/schemas/AppaltoType'
+    AvvisoListaResponse:
+      allOf: # estende la classe DatiAppaltoType
+        - $ref: '#/components/schemas/PaginazioneType'
+      description: Oggetto generico di ritorno di una risposta con paginazione
+      type: object
+      additionalProperties: false
+      properties:
+        result: 
+          description: Lista di ritorno con la sintesi dei dati dell'Avviso
+          type: array
+          items:
+            $ref: '#/components/schemas/AvvisoType'
+      example:
+          totRows : 2
+          totPages : 1
+          currentPage : 1
+          result :
+            - idAvviso: '323ERER233'
+              codiceSA: 'sss'
+              appalto:
+                codiceSA: '323ERER233'
+                idAppalto: "ceb08609-1a78-4df6-ae8d-81b0516e6f71"
+                tipo: 'Appalti di lavori'
+                oggetto: 'Fornitura di strumento XX per XX'
+                dataCreazione: '2022-04-01T12:02:05Z'
+                dataScadenza: '2023-12-31T12:02:05Z'
+                importo: '200000.00'
+                stato: 'IN LAVORAZIONE'
+            - idAvviso: '323ERER233'
+              codiceSA: 'sss'
+              appalto:
+                codiceSA: '323ERER233'
+                idAppalto: "d625594d-bd4d-4193-b094-4471fd157866"
+                tipo: 'Forniture'
+                oggetto: 'Fornitura di strumento XX per XX'
+                dataCreazione: '2022-01-23T12:02:05Z'
+                dataScadenza: '2022-10-12T12:02:05Z'
+                importo: '441000.00'
+                stato: 'PUBBLICATO'    
+    CigListaResponse :
+      allOf: # estende la classe DatiAppaltoType
+        - $ref: '#/components/schemas/PaginazioneType'
+      description: Oggetto generico di ritorno di una risposta con paginazione
+      type: object
+      additionalProperties: false
+      properties:
+        result: 
+          description: Lista dei progressivoLotto-CIG
+          type: array
+          items:
+            $ref: '#/components/schemas/CigType' 
+          example:
+            - progressivoLotto: '0001'
+              CIG: 'EF89808D45'
+            - progressivoLotto: '0002'
+              CIG: 'EF89908H45' 
+            - progressivoLotto: '0003'
+              CIG: 'EF90908G67' 
+    SchedaListaResponse:
+      allOf: # estende la classe DatiAppaltoType
+          - $ref: '#/components/schemas/PaginazioneType'
+      description: Oggetto generico di ritorno di una risposta con paginazione
+      type: object
+      additionalProperties: false
+      properties:
+        result:
+          description: Lista di ritorno con la sintesi dei dati delle schede
+          type: array
+          items:
+            $ref: '#/components/schemas/SchedaType'
+    DatiAppaltoRequest:
+      allOf: # estende la classe DatiAppaltoType
+        - $ref: '#/components/schemas/DatiAppaltoType'
+    SchedaRequest:
+      allOf: # estende la classe DatiAppaltoType
+        - $ref: '#/components/schemas/SchedaType' 
+    AvvisoRequest:
+      oneOf:
+        - $ref: '#/components/schemas/DatiAppaltoRequest'
+        - $ref: '#/components/schemas/SchedaRequest'
+    ConsultaAvvisoResponse:
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        avviso:
+          $ref: '#/components/schemas/AvvisoType'
+        eForm:
+          $ref: '#/components/schemas/EFormType'
+        anacForm:
+          description: codice identificativo Stazione Appaltante
+          type: string
+          example: xcdsd5#334
+    ConsultaSchedaResponse:
+      allOf: # estende lo schema dati di BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+      properties:
+        scheda:
+          $ref: '#/components/schemas/SchedaType'
+    EsitoOperazioneType:        
+      type: object
+      additionalProperties: false
+      required:  # List the required properties here
+        - codice
+        - descrizione
+      properties:
+        codice: 
+          description: codice dell'esito dell'operazione
+          type: string
+          example: '01'
+        descrizione:
+          description: descrizione dell'esito dell'operazione
+          type: string
+          example: 'AVVISO PUBBLICATO'
+        dettaglio:
+          description: descrizione dettagliata dell'esito dell'operazione
+          type: string
+    EsitoOperazioneListaResponse:
+      type: object
+      additionalProperties: false
+      required:  # List the required properties here
+        - idAppalto
+      properties:
+        idAppalto:
+          description: Identificativo univoco dell'appalto definito da ANAC. Restituito dall'operazione di creazione Apalto. (A UUID specified by RFC4122)
+          format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        listaEsiti:
+          description: Lista di ritorno esiti operazione
+          type: array
+          items:
+            $ref: '#/components/schemas/EsitoOperazioneType'
+    BaseResponse:
+      type: object
+      additionalProperties: false
+      properties:
+          detail:
+              description: |
+                A human readable explanation specific to this occurrence of the
+                problem.
+              maxLength: 4096
+              pattern: ^.{0,1024}$
+              type: string
+              example: 'Request took too long to complete.'
+          instance:
+              description: |
+                An absolute URI that identifies the specific occurrence of the
+                problem.
+                It may or may not yield further information if dereferenced.
+              format: uri
+              maxLength: 2048
+              type: string
+          status:
+              description: |
+                The HTTP status code generated by the origin server for this
+                occurrence
+                of the problem.
+              exclusiveMaximum: true
+              format: int32
+              maximum: 600
+              minimum: 100
+              type: integer
+              example: 503
+          title:
+              description: |
+                A short, summary of the problem type. Written in english and
+                readable
+                for engineers (usually not suited for non technical stakeholders
+                and not localized);
+              maxLength: 64
+              pattern: ^[ -~]{0,64}$
+              type: string
+              example: 'Service Unavailable'
+          type:
+              description: |
+                An absolute URI that identifies the problem type. When
+                dereferenced,
+                it SHOULD provide human-readable documentation for the problem
+                type
+                (e.g., using HTML).
+              default: about:blank
+              format: uri
+              maxLength: 2048
+              type: string
+              example: 'https://tools.ietf.org/html/rfc7231#section-6.6.4'  
+    ErrorResponse:
+      allOf: # estende la classe BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+    AckResponse:
+      allOf: # estende la classe BaseResponse
+        - $ref: '#/components/schemas/BaseResponse'
+  securitySchemes:
+    repositorydocumentale_auth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://fvoe.swagger.io/oauth/authorize
+          tokenUrl: https://api.example.com/oauth/token
+          scopes:
+            write:FVOE: modifica documenti del FVOE
+            read:FVOE: lettura documenti del FVOE
+            write:FVA: modifica documenti del FVA
+            read:FVA: lettura documenti del FVA  
+    applicationDB_auth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://oauth/authorize 
+          tokenUrl: https://oauth/token             
+          scopes:
+            write:NPA: modifica dati della componente NuovaPiattaformaAppalti
+            read:NPA: lettura dati della componente NuovaPiattaformaAppalti
+    apiKeyAuth:
+      type: apiKey
+      name: apiKeyAuth # name of the header, query parameter or cookie
+      in: header  # can be "header", "query" or "cookie"          
